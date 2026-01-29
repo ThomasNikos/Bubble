@@ -1,5 +1,6 @@
 import { CustomGamesCreator } from "./CustomGameCreator";
 import { LevelSelector } from "./LevelSelector";
+import { MultiplayerGameManager } from "./MultiplayerGameManager";
 import { CANVAS_DIMENSIONS } from "./constants";
 import backgroundImgSrc from "/wall.jpg";
 import foregroundImgSrc from "/start-screen.png";
@@ -12,6 +13,7 @@ export class StartScreen {
   ctx: CanvasRenderingContext2D;
   onePlayerButton!: HTMLButtonElement;
   twoPlayersButton!: HTMLButtonElement;
+  playOnlineButton!: HTMLButtonElement;
   settingsButton!: HTMLButtonElement;
   createGameButton!: HTMLButtonElement;
   backgroundWallImg: HTMLImageElement;
@@ -54,9 +56,10 @@ export class StartScreen {
       this.drawTitle();
     };
 
-    this.onePlayerButton = this.createButton("One Player", 400, 300);
-    this.twoPlayersButton = this.createButton("Two Players", 400, 400);
-    this.createGameButton = this.createButton("Create Game", 400, 500);
+    this.onePlayerButton = this.createButton("One Player", 400, 280);
+    this.twoPlayersButton = this.createButton("Two Players", 400, 360);
+    this.playOnlineButton = this.createButton("Play Online", 400, 440);
+    this.createGameButton = this.createButton("Create Game", 400, 520);
   }
   drawTitle() {
     this.ctx.font = '80px "Comic Sans MS", sans-serif';
@@ -93,6 +96,10 @@ export class StartScreen {
       this.clearUI();
       new LevelSelector(this.canvas, 2);
     });
+    this.playOnlineButton.addEventListener("click", () => {
+      this.clearUI();
+      new MultiplayerGameManager(this.canvas);
+    });
     this.createGameButton.addEventListener("click", () => {
       this.clearUI();
       new CustomGamesCreator(this.canvas);
@@ -104,9 +111,11 @@ export class StartScreen {
   clearUI() {
     document.body.removeChild(this.onePlayerButton);
     document.body.removeChild(this.twoPlayersButton);
+    document.body.removeChild(this.playOnlineButton);
     document.body.removeChild(this.createGameButton);
     this.onePlayerButton = undefined!;
     this.twoPlayersButton = undefined!;
+    this.playOnlineButton = undefined!;
     this.createGameButton = undefined!;
   }
 }
