@@ -141,6 +141,9 @@ export class MultiplayerGameManager {
     // Apply shoot
     if (input.shoot && (!guestPlayer.arrow || !guestPlayer.arrow.isActive)) {
       guestPlayer.shootArrow();
+      if (guestPlayer.arrow) {
+        guestPlayer.arrow.isHittable = true;
+      }
     }
   }
 

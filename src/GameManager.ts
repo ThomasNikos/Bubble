@@ -147,6 +147,13 @@ export class GameManager {
       playersToControl.forEach((player) => {
         if (!player) return;
 
+        // In multiplayer, guest doesn't execute actions locally - only sends input
+        if (this.isMultiplayer && this.localPlayerIndex === 1) {
+          // Guest: Don't execute anything, just send input via callback below
+          return;
+        }
+
+        // Host or single player: Execute actions locally
         if (keyState[player.controls!.left]) {
           player.movement = Movement.LEFT;
           player.tempMovement = Movement.LEFT;
@@ -159,6 +166,9 @@ export class GameManager {
           const arrowSound = new Audio(arrowAudioSrc);
           arrowSound.play();
           player.shootArrow();
+          if (player.arrow) {
+            player.arrow.isHittable = true;
+          }
           player.movement = Movement.STATIONARY;
         }
       });
@@ -187,6 +197,13 @@ export class GameManager {
       playersToControl.forEach((player) => {
         if (!player) return;
 
+        // In multiplayer, guest doesn't execute actions locally - only sends input
+        if (this.isMultiplayer && this.localPlayerIndex === 1) {
+          // Guest: Don't execute anything, just send input via callback below
+          return;
+        }
+
+        // Host or single player: Execute actions locally
         if (
           event.code === player.controls!.left ||
           event.code === player.controls!.right
