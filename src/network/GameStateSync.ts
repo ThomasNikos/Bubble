@@ -1,5 +1,6 @@
-import { GameState, PlayerState, BubbleState, ArrowState } from './MessageTypes';
+import { GameState, PlayerState, BubbleState, ArrowState, PowerUpState } from './MessageTypes';
 import { Bubble } from '../components/Bubble';
+import { PowerUp } from '../components/Power-ups';
 
 export class GameStateSync {
   // Serialize the game state for network transmission
@@ -13,6 +14,7 @@ export class GameStateSync {
       player2: this.serializePlayer(players[1]),
       bubbles: this.serializeBubbles(GameManagerClass.bubbleArray || []),
       arrows: this.serializeArrows(gameManager),
+      powerUps: this.serializePowerUps(gameManager.powerUpArray || []),
       score: gameManager.score?.score || 0,
       timeRemaining: gameManager.timeRemaining || 0,
       level: gameManager.level || 1
@@ -45,20 +47,29 @@ export class GameStateSync {
   private static serializeArrows(gameManager: any): ArrowState[] {
     const arrows: ArrowState[] = [];
 
-    // Serialize arrows from both players
+    // Serialize arrows from both players with player index
     if (gameManager.players) {
-      gameManager.players.forEach((player: any) => {
+      gameManager.players.forEach((player: any, playerIndex: number) => {
         if (player.arrow && player.arrow.isActive) {
           arrows.push({
             x: player.arrow.posX || 0,
             y: player.arrow.posY || 0,
-            isActive: true
+            isActive: true,
+            playerIndex: playerIndex
           });
         }
       });
     }
 
     return arrows;
+  }
+
+  private static serializePowerUps(powerUps: any[]): PowerUpState[] {
+    return powerUps.map(powerUp => ({
+      x: powerUp.posX || 0,
+      y: powerUp.posY || 0,
+      powerUpOption: powerUp.powerUpOption || 0
+    }));
   }
 
   // Apply received game state to the local game manager
@@ -79,12 +90,15 @@ export class GameStateSync {
     // Update arrows
     this.applyArrows(gameManager, state.arrows);
 
+    // Update power-ups
+    this.applyPowerUps(gameManager, state.powerUps);
+
     // Update game properties
     if (gameManager.score) {
       gameManager.score.score = state.score;
     }
     gameManager.timeRemaining = state.timeRemaining;
-    gameManager.currentLevel = state.level;
+    gameManager.level = state.level;
   }
 
   private static applyPlayerState(player: any, state: PlayerState): void {
@@ -129,13 +143,30 @@ export class GameStateSync {
       }
     });
 
-    // Apply active arrows
-    arrows.forEach((arrowState, index) => {
-      if (index < players.length && players[index].arrow) {
-        players[index].arrow.posX = arrowState.x;
-        players[index].arrow.posY = arrowState.y;
-        players[index].arrow.isActive = arrowState.isActive;
+    // Apply active arrows to correct players
+    arrows.forEach((arrowState) => {
+      const player = players[arrowState.playerIndex];
+      if (player && player.arrow) {
+        player.arrow.posX = arrowState.x;
+        player.arrow.posY = arrowState.y;
+        player.arrow.isActive = arrowState.isActive;
       }
+    });
+  }
+
+  private static applyPowerUps(gameManager: any, powerUps: PowerUpState[]): void {
+    // Clear existing power-ups
+    gameManager.powerUpArray = [];
+
+    // Recreate power-ups from state
+    powerUps.forEach(powerUpState => {
+      const powerUp = new PowerUp(
+        gameManager.ctx,
+        powerUpState.x,
+        powerUpState.y,
+        powerUpState.powerUpOption
+      );
+      gameManager.powerUpArray.push(powerUp);
     });
   }
 
@@ -156,9 +187,10 @@ export class GameStateSync {
       delta.player2 = newState.player2;
     }
 
-    // Always send bubbles and arrows as they change frequently
+    // Always send bubbles, arrows, and powerUps as they change frequently
     delta.bubbles = newState.bubbles;
     delta.arrows = newState.arrows;
+    delta.powerUps = newState.powerUps;
 
     // Check simple properties
     if (oldState.score !== newState.score) {

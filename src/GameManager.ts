@@ -476,6 +476,11 @@ export class GameManager {
               player.arrow.isActive = false;
               player.arrow.isHittable = false;
               player.incrementScore();
+
+              // Reset sticky flag after arrow hits something in multiplayer
+              if (this.isMultiplayer && Arrow.isSticky) {
+                Arrow.isSticky = false;
+              }
             }
           }
         });

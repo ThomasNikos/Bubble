@@ -38,6 +38,13 @@ export interface ArrowState {
   x: number;
   y: number;
   isActive: boolean;
+  playerIndex: number; // Which player owns this arrow
+}
+
+export interface PowerUpState {
+  x: number;
+  y: number;
+  powerUpOption: number;
 }
 
 export interface GameState {
@@ -45,6 +52,7 @@ export interface GameState {
   player2: PlayerState;
   bubbles: BubbleState[];
   arrows: ArrowState[];
+  powerUps: PowerUpState[];
   score: number;
   timeRemaining: number;
   level: number;

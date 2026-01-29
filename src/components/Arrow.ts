@@ -33,14 +33,20 @@ export class Arrow {
   }
 
   update() {
-    if (Arrow.isSticky && this.posY <= 0) {
-      return;
-    }
-    if (this.posY <= 0) {
-      this.isActive = false;
-    }
+    // Move arrow up if active
     if (this.isActive) {
       this.posY -= 6;
+    }
+
+    // If arrow reaches top
+    if (this.posY <= 0) {
+      if (Arrow.isSticky) {
+        // Sticky arrow stays at top but still needs to check for collisions
+        this.posY = 0;
+      } else {
+        // Normal arrow deactivates at top
+        this.isActive = false;
+      }
     }
   }
 
