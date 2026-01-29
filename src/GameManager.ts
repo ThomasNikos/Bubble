@@ -158,8 +158,7 @@ export class GameManager {
         if (keyState[player.controls!.shoot]) {
           const arrowSound = new Audio(arrowAudioSrc);
           arrowSound.play();
-          this.arrow = new Arrow(this.ctx, player.posX + player.width/2)
-          this.arrow!.isHittable = true;
+          player.shootArrow();
           player.movement = Movement.STATIONARY;
         }
       });
@@ -259,8 +258,10 @@ export class GameManager {
       this.canvas.height
     );
 
-    //draw arrow
-    this.arrow?.draw();
+    //draw arrows for each player
+    this.players.forEach((player) => {
+      player.arrow?.draw();
+    });
 
     //draw player
     this.players.forEach((player) => player.draw());
@@ -341,13 +342,22 @@ export class GameManager {
       });
     });
 
-    //check collision between bubble and arrow
+    //check collision between bubble and arrow (check all player arrows)
     GameManager.bubbleArray!.forEach((bubble) => {
-      bubble.isBubbleArrowCollisionTrue = this.arrow?.checkCollision(
-        bubble.centerX,
-        bubble.centerY,
-        bubble.radius
-      );
+      bubble.isBubbleArrowCollisionTrue = false;
+
+      this.players.forEach((player) => {
+        if (player.arrow && player.arrow.isActive) {
+          const collision = player.arrow.checkCollision(
+            bubble.centerX,
+            bubble.centerY,
+            bubble.radius
+          );
+          if (collision) {
+            bubble.isBubbleArrowCollisionTrue = true;
+          }
+        }
+      });
     });
 
     //check collision between player and power-ups
@@ -415,33 +425,42 @@ export class GameManager {
 
     this.players.forEach((player) => player.update());
 
-    //arrow splits bubbles
+    //arrow splits bubbles - check all player arrows
     GameManager.bubbleArray!.forEach((bubble, index) => {
-      if (
-        bubble.isBubbleArrowCollisionTrue &&
-        this.arrow!.isHittable &&
-        this.arrow!.isActive
-      ) {
-        const bubblePopSound = new Audio(splitAudioSrc);
-        bubblePopSound.play();
-        if (bubble.radius < 10) {
-          GameManager.bubbleArray?.splice(index, 1);
-        } else {
-          this.powerUpOption = getRandomInt(0, 3);
-          bubble.splitBubbles()!;
-          this.powerUpArray.push(
-            new PowerUp(
-              this.ctx,
+      if (bubble.isBubbleArrowCollisionTrue) {
+        // Find which player's arrow hit the bubble
+        this.players.forEach((player) => {
+          if (player.arrow && player.arrow.isActive && player.arrow.isHittable) {
+            const collision = player.arrow.checkCollision(
               bubble.centerX,
               bubble.centerY,
-              this.powerUpOption
-            )
-          );
-        }
-        this.arrow!.isActive = false;
-        this.arrow!.isHittable = false;
-        this.players.forEach((player) => {
-          player.incrementScore();
+              bubble.radius
+            );
+
+            if (collision) {
+              const bubblePopSound = new Audio(splitAudioSrc);
+              bubblePopSound.play();
+
+              if (bubble.radius < 10) {
+                GameManager.bubbleArray?.splice(index, 1);
+              } else {
+                this.powerUpOption = getRandomInt(0, 3);
+                bubble.splitBubbles()!;
+                this.powerUpArray.push(
+                  new PowerUp(
+                    this.ctx,
+                    bubble.centerX,
+                    bubble.centerY,
+                    this.powerUpOption
+                  )
+                );
+              }
+
+              player.arrow.isActive = false;
+              player.arrow.isHittable = false;
+              player.incrementScore();
+            }
+          }
         });
       }
     });
@@ -452,7 +471,10 @@ export class GameManager {
       bubble.update();
     });
 
-    this.arrow?.update();
+    // Update all player arrows
+    this.players.forEach((player) => {
+      player.arrow?.update();
+    });
 
     this.checkBubblesOnPlayerSide();
 
@@ -473,33 +495,38 @@ export class GameManager {
       this.ctx,
       (CANVAS_DIMENSIONS.CANVAS_WIDTH - WALL_WIDTH) / 2
     );
-    this.levelLoader.loadLevel(this.level! - 1);
-
-    this.resetTimer();
 
     player.updateLives();
 
-    // In multiplayer, don't remove players - let them keep playing
-    if (!this.isMultiplayer) {
-      this.players.forEach((player, index)=>{
-        if (player.life == 0) {
-          this.players.splice(index, 1);
+    // Check if any player has run out of lives
+    const hasPlayerWithNoLives = this.players.some((p) => p.life === 0);
+
+    if (hasPlayerWithNoLives) {
+      if (this.isMultiplayer) {
+        // In multiplayer, restart from level 1 and give all players back 3 lives
+        console.log('Player lost all lives - restarting from level 1');
+        this.level = 1;
+        this.players.forEach((p) => {
+          p.life = 3;
+          p.score = 0;
+        });
+        this.levelLoader.loadLevel(0); // Level 1 is at index 0
+      } else {
+        // In single player, remove players with no lives
+        this.players = this.players.filter((p) => p.life > 0);
+
+        if (this.players.length === 0) {
+          this.gameState = GameState.END;
+          this.endGameStateRender();
+          return;
         }
-      })
+      }
     } else {
-      // In multiplayer, if a player runs out of lives, give them back 1 life to continue
-      this.players.forEach((player) => {
-        if (player.life == 0) {
-          player.life = 1;
-        }
-      });
+      // No one died completely, just reload current level
+      this.levelLoader.loadLevel(this.level! - 1);
     }
 
-    // Only end game if all players have 0 lives (only happens in single player)
-    if(this.players.length==0){
-      this.gameState = GameState.END;
-      this.endGameStateRender();
-    }
+    this.resetTimer();
   }
   /**
    * The function checks if all bubbles on the player's side of the wall have been popped and triggers
