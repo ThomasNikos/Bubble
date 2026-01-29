@@ -50,6 +50,13 @@ export class MultiplayerGameManager {
   }
 
   private handleNetworkMessage(message: NetworkMessage): void {
+    // If we're in the lobby, route messages to LobbyUI
+    if (this.inLobby) {
+      this.lobbyUI.handleMessage(message);
+      return;
+    }
+
+    // In-game message handling
     switch (message.type) {
       case MessageType.STATE_UPDATE:
         // Receive full game state from host

@@ -32,15 +32,19 @@ export class LobbyUI {
       this.status = 'Connected! Press R when ready.';
     });
 
-    this.networkManager.setOnMessage((message) => {
-      if (message.type === 'PLAYER_READY') {
-        this.remoteReady = true;
-        this.status = 'Other player is ready!';
-        this.checkBothReady();
-      } else if (message.type === 'START_GAME') {
-        this.startGame();
-      }
-    });
+    // Note: setOnMessage is called by MultiplayerGameManager
+    // Messages are routed to us via handleMessage() method
+  }
+
+  // Public method to handle messages (called by MultiplayerGameManager)
+  public handleMessage(message: any): void {
+    if (message.type === 'PLAYER_READY') {
+      this.remoteReady = true;
+      this.status = 'Other player is ready!';
+      this.checkBothReady();
+    } else if (message.type === 'START_GAME') {
+      this.startGame();
+    }
   }
 
   private updateStatusMessage(status: ConnectionStatus): void {
