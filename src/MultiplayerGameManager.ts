@@ -88,11 +88,32 @@ export class MultiplayerGameManager {
     console.log('Creating GameManager with 2 players, isHost:', this.isHost);
 
     // Create game with 2 players
-    // Note: GameManager starts its own loop in the constructor
-    this.gameManager = new GameManager(this.canvas, 2);
+    // Host: auto-start the game loop (authoritative)
+    // Guest: don't auto-start (will only render received state)
+    this.gameManager = new GameManager(this.canvas, 2, undefined, this.isHost);
+
+    // If guest, start render-only loop
+    if (!this.isHost) {
+      this.startGuestRenderLoop();
+    }
 
     // Start multiplayer sync
     this.startMultiplayerSync();
+  }
+
+  private startGuestRenderLoop(): void {
+    console.log('Starting guest render loop...');
+
+    const renderLoop = () => {
+      if (!this.gameManager) return;
+
+      // Guest only renders, doesn't run game logic
+      this.gameManager.draw();
+
+      requestAnimationFrame(renderLoop);
+    };
+
+    renderLoop();
   }
 
   private startMultiplayerSync(): void {

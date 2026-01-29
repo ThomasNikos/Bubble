@@ -69,7 +69,8 @@ export class GameManager {
   constructor(
     canvas: HTMLCanvasElement,
     numberOfPlayers: number,
-    customLevelConfig?: any
+    customLevelConfig?: any,
+    autoStart: boolean = true
   ) {
     this.canvas = canvas;
     this.ctx = this.canvas.getContext("2d")!;
@@ -119,7 +120,9 @@ export class GameManager {
     this.start = this.start.bind(this);
 
     this.initialSetup();
-    this.start();
+    if (autoStart) {
+      this.start();
+    }
 
     this.players.forEach((player)=>{
       player.tempMovement = Movement.STATIONARY;
