@@ -62,7 +62,18 @@ export class LobbyUI {
 
   private setupInputHandlers(): void {
     document.addEventListener('keydown', (e) => {
-      if (this.mode === 'join') {
+      // Handle menu keys (C for create, J for join)
+      if (this.mode === 'menu') {
+        if (e.key.toLowerCase() === 'c') {
+          this.mode = 'create';
+          this.networkManager.createRoom();
+        } else if (e.key.toLowerCase() === 'j') {
+          this.mode = 'join';
+          this.roomCodeInput = '';
+        }
+      }
+      // Handle join room input
+      else if (this.mode === 'join') {
         if (e.key.length === 1 && /[A-Z0-9]/i.test(e.key)) {
           if (this.roomCodeInput.length < 6) {
             this.roomCodeInput += e.key.toUpperCase();
@@ -73,7 +84,9 @@ export class LobbyUI {
           this.networkManager.joinRoom(this.roomCodeInput);
           this.mode = 'create'; // Switch to waiting mode
         }
-      } else if (this.networkManager.isConnected()) {
+      }
+      // Handle ready state
+      else if (this.networkManager.isConnected()) {
         if (e.key.toLowerCase() === 'r' && !this.isReady) {
           this.isReady = true;
           this.networkManager.send({
@@ -83,6 +96,18 @@ export class LobbyUI {
           });
           this.status = 'You are ready! Waiting for other player...';
           this.checkBothReady();
+        }
+      }
+
+      // Handle ESC key
+      if (e.key === 'Escape') {
+        if (this.mode !== 'menu') {
+          this.networkManager.disconnect();
+          this.mode = 'menu';
+          this.roomCodeInput = '';
+          this.status = '';
+          this.isReady = false;
+          this.remoteReady = false;
         }
       }
     });
