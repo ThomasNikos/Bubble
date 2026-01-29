@@ -8,7 +8,7 @@ module.exports = {
 
   output: {
     path: path.resolve(__dirname, "public"),
-    publicPath: "/",
+    publicPath: "/bubble-trouble/",
     filename: "bundle.js"
   },
 
@@ -19,7 +19,7 @@ module.exports = {
       {
         test: /\.jsx?$/, // match loader to file
         exclude: /(node_modules|bower_components)/,
-        loader: "babel?optional[]=runtime"
+        loader: "babel"
       },
       // JSON loader
       {
