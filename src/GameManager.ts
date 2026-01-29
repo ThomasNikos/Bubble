@@ -65,12 +65,16 @@ export class GameManager {
   players: Player[] = [];
   static walls: Wall[] = [];
   gameOverImg: HTMLImageElement;
+  localPlayerIndex?: number; // Which player this client controls (0 for host/P1, 1 for guest/P2)
+  isMultiplayer: boolean = false;
+  onInputChange?: (input: { left: boolean; right: boolean; shoot: boolean }) => void;
 
   constructor(
     canvas: HTMLCanvasElement,
     numberOfPlayers: number,
     customLevelConfig?: any,
-    autoStart: boolean = true
+    autoStart: boolean = true,
+    localPlayerIndex?: number
   ) {
     this.canvas = canvas;
     this.ctx = this.canvas.getContext("2d")!;
@@ -98,6 +102,8 @@ export class GameManager {
     this.adjustedTime = 0;
 
     this.customLevelConfig = customLevelConfig;
+    this.localPlayerIndex = localPlayerIndex;
+    this.isMultiplayer = numberOfPlayers > 1 && localPlayerIndex !== undefined;
 
     GameManager.wallSlidingSound = new Audio(wallSlideAudioSrc);
     GameManager.wallSlidingSound.loop = false;
@@ -133,7 +139,14 @@ export class GameManager {
     document.addEventListener("keydown", (event) => {
       keyState[event.code] = true;
 
-      this.players.forEach((player) => {
+      // In multiplayer, only control the local player
+      const playersToControl = this.isMultiplayer && this.localPlayerIndex !== undefined
+        ? [this.players[this.localPlayerIndex]]
+        : this.players;
+
+      playersToControl.forEach((player) => {
+        if (!player) return;
+
         if (keyState[player.controls!.left]) {
           player.movement = Movement.LEFT;
           player.tempMovement = Movement.LEFT;
@@ -150,12 +163,31 @@ export class GameManager {
           player.movement = Movement.STATIONARY;
         }
       });
+
+      // Send input to network if guest
+      if (this.isMultiplayer && this.localPlayerIndex === 1 && this.onInputChange) {
+        const localPlayer = this.players[this.localPlayerIndex];
+        if (localPlayer) {
+          this.onInputChange({
+            left: keyState[localPlayer.controls!.left] || false,
+            right: keyState[localPlayer.controls!.right] || false,
+            shoot: keyState[localPlayer.controls!.shoot] || false
+          });
+        }
+      }
     });
 
     document.addEventListener("keyup", (event) => {
       keyState[event.code] = false;
 
-      this.players.forEach((player) => {
+      // In multiplayer, only control the local player
+      const playersToControl = this.isMultiplayer && this.localPlayerIndex !== undefined
+        ? [this.players[this.localPlayerIndex]]
+        : this.players;
+
+      playersToControl.forEach((player) => {
+        if (!player) return;
+
         if (
           event.code === player.controls!.left ||
           event.code === player.controls!.right
@@ -167,6 +199,18 @@ export class GameManager {
           player.movement = player.tempMovement;
         }
       });
+
+      // Send input to network if guest
+      if (this.isMultiplayer && this.localPlayerIndex === 1 && this.onInputChange) {
+        const localPlayer = this.players[this.localPlayerIndex];
+        if (localPlayer) {
+          this.onInputChange({
+            left: keyState[localPlayer.controls!.left] || false,
+            right: keyState[localPlayer.controls!.right] || false,
+            shoot: keyState[localPlayer.controls!.shoot] || false
+          });
+        }
+      }
 });
 
   }
@@ -434,12 +478,24 @@ export class GameManager {
     this.resetTimer();
 
     player.updateLives();
-    this.players.forEach((player, index)=>{
 
-      if (player.life == 0) {
-        this.players.splice(index, 1);
-      }
-    })
+    // In multiplayer, don't remove players - let them keep playing
+    if (!this.isMultiplayer) {
+      this.players.forEach((player, index)=>{
+        if (player.life == 0) {
+          this.players.splice(index, 1);
+        }
+      })
+    } else {
+      // In multiplayer, if a player runs out of lives, give them back 1 life to continue
+      this.players.forEach((player) => {
+        if (player.life == 0) {
+          player.life = 1;
+        }
+      });
+    }
+
+    // Only end game if all players have 0 lives (only happens in single player)
     if(this.players.length==0){
       this.gameState = GameState.END;
       this.endGameStateRender();

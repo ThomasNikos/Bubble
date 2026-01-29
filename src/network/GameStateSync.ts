@@ -1,18 +1,21 @@
 import { GameState, PlayerState, BubbleState, ArrowState } from './MessageTypes';
+import { Bubble } from '../components/Bubble';
 
 export class GameStateSync {
   // Serialize the game state for network transmission
   public static serializeGameState(gameManager: any): GameState {
     const players = gameManager.players || [];
+    // Access static bubbleArray from GameManager class
+    const GameManagerClass = gameManager.constructor;
 
     return {
       player1: this.serializePlayer(players[0]),
       player2: this.serializePlayer(players[1]),
-      bubbles: this.serializeBubbles(gameManager.bubbleArray || []),
+      bubbles: this.serializeBubbles(GameManagerClass.bubbleArray || []),
       arrows: this.serializeArrows(gameManager),
       score: gameManager.score?.score || 0,
       timeRemaining: gameManager.timeRemaining || 0,
-      level: gameManager.currentLevel || 1
+      level: gameManager.level || 1
     };
   }
 
@@ -22,17 +25,17 @@ export class GameStateSync {
     }
 
     return {
-      x: player.x || 0,
-      y: player.y || 0,
+      x: player.posX || 0,
+      y: player.posY || 0,
       score: player.score || 0,
-      lives: player.lives || 3
+      lives: player.life || 3
     };
   }
 
   private static serializeBubbles(bubbles: any[]): BubbleState[] {
     return bubbles.map(bubble => ({
-      x: bubble.x || 0,
-      y: bubble.y || 0,
+      x: bubble.centerX || 0,
+      y: bubble.centerY || 0,
       radius: bubble.radius || 0,
       dx: bubble.dx || 0,
       dy: bubble.dy || 0
@@ -47,8 +50,8 @@ export class GameStateSync {
       gameManager.players.forEach((player: any) => {
         if (player.arrow && player.arrow.isActive) {
           arrows.push({
-            x: player.arrow.x || 0,
-            y: player.arrow.y || 0,
+            x: player.arrow.posX || 0,
+            y: player.arrow.posY || 0,
             isActive: true
           });
         }
@@ -85,28 +88,34 @@ export class GameStateSync {
   }
 
   private static applyPlayerState(player: any, state: PlayerState): void {
-    player.x = state.x;
-    player.y = state.y;
+    player.posX = state.x;
+    player.posY = state.y;
     player.score = state.score;
-    player.lives = state.lives;
+    player.life = state.lives;
   }
 
   private static applyBubbles(gameManager: any, bubbles: BubbleState[]): void {
+    // Access static bubbleArray from GameManager class
+    const GameManagerClass = gameManager.constructor;
+
     // Clear existing bubbles
-    gameManager.bubbleArray = [];
+    GameManagerClass.bubbleArray = [];
 
     // Recreate bubbles from state
     bubbles.forEach(bubbleState => {
-      // We need to recreate bubble objects with the proper class
-      // This assumes bubbles have a simple constructor
-      const bubble: any = {
-        x: bubbleState.x,
-        y: bubbleState.y,
-        radius: bubbleState.radius,
-        dx: bubbleState.dx,
-        dy: bubbleState.dy
-      };
-      gameManager.bubbleArray.push(bubble);
+      // Create proper Bubble instance
+      const bubble = new Bubble(
+        gameManager.ctx,
+        1, // numberOfBubbles - doesn't affect rendering
+        bubbleState.radius,
+        bubbleState.x,
+        bubbleState.y
+      );
+      // Update velocity from state
+      bubble.dx = bubbleState.dx;
+      bubble.dy = bubbleState.dy;
+
+      GameManagerClass.bubbleArray.push(bubble);
     });
   }
 
@@ -123,8 +132,8 @@ export class GameStateSync {
     // Apply active arrows
     arrows.forEach((arrowState, index) => {
       if (index < players.length && players[index].arrow) {
-        players[index].arrow.x = arrowState.x;
-        players[index].arrow.y = arrowState.y;
+        players[index].arrow.posX = arrowState.x;
+        players[index].arrow.posY = arrowState.y;
         players[index].arrow.isActive = arrowState.isActive;
       }
     });

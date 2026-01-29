@@ -3,6 +3,7 @@ import { NetworkManager } from './network/NetworkManager';
 import { LobbyUI } from './ui/LobbyUI';
 import { GameStateSync } from './network/GameStateSync';
 import { MessageType, NetworkMessage } from './network/MessageTypes';
+import { Movement } from './utils/enum';
 
 export class MultiplayerGameManager {
   private canvas: HTMLCanvasElement;
@@ -58,6 +59,13 @@ export class MultiplayerGameManager {
 
     // In-game message handling
     switch (message.type) {
+      case MessageType.INPUT:
+        // Host receives input from guest and applies it to player 2
+        if (this.isHost && this.gameManager) {
+          this.applyGuestInput(message.data);
+        }
+        break;
+
       case MessageType.STATE_UPDATE:
         // Receive full game state from host
         if (!this.isHost && this.gameManager) {
@@ -88,17 +96,52 @@ export class MultiplayerGameManager {
     console.log('Creating GameManager with 2 players, isHost:', this.isHost);
 
     // Create game with 2 players
+    // Host controls player 0, Guest controls player 1
+    const localPlayerIndex = this.isHost ? 0 : 1;
+
     // Host: auto-start the game loop (authoritative)
     // Guest: don't auto-start (will only render received state)
-    this.gameManager = new GameManager(this.canvas, 2, undefined, this.isHost);
+    this.gameManager = new GameManager(this.canvas, 2, undefined, this.isHost, localPlayerIndex);
 
-    // If guest, start render-only loop
+    // Set up input callback for guest to send input to host
     if (!this.isHost) {
+      this.gameManager.onInputChange = (input) => {
+        this.networkManager.send({
+          type: MessageType.INPUT,
+          data: input,
+          timestamp: Date.now()
+        });
+      };
+
       this.startGuestRenderLoop();
     }
 
     // Start multiplayer sync
     this.startMultiplayerSync();
+  }
+
+  private applyGuestInput(input: { left: boolean; right: boolean; shoot: boolean }): void {
+    if (!this.gameManager || this.gameManager.players.length < 2) return;
+
+    const guestPlayer = this.gameManager.players[1]; // Guest is player 2 (index 1)
+    if (!guestPlayer) return;
+
+    // Apply movement
+    if (input.left) {
+      guestPlayer.movement = Movement.LEFT;
+      guestPlayer.tempMovement = Movement.LEFT;
+    } else if (input.right) {
+      guestPlayer.movement = Movement.RIGHT;
+      guestPlayer.tempMovement = Movement.RIGHT;
+    } else if (!input.shoot) {
+      guestPlayer.movement = Movement.STATIONARY;
+      guestPlayer.tempMovement = Movement.STATIONARY;
+    }
+
+    // Apply shoot
+    if (input.shoot && (!guestPlayer.arrow || !guestPlayer.arrow.isActive)) {
+      guestPlayer.shootArrow();
+    }
   }
 
   private startGuestRenderLoop(): void {
